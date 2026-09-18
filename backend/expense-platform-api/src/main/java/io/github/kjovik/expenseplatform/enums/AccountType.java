@@ -1,6 +1,6 @@
 package io.github.kjovik.expenseplatform.enums;
 
-public enum Type {
+public enum AccountType {
     CASH,
     PAYABLE,
     EXPENSE

@@ -1,13 +1,17 @@
 package io.github.kjovik.expenseplatform.entity;
 
-import io.github.kjovik.expenseplatform.enums.Type;
+import io.github.kjovik.expenseplatform.enums.AccountType;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.Instant;
 import java.util.UUID;
 
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
 @Table ( name = "accounts")
 public class Account {
@@ -15,15 +19,15 @@ public class Account {
     @GeneratedValue (strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column
+    @Column (nullable = false)
     private UUID tenantId;
 
-    @Column (nullable = false)
+    @Column (nullable = false, length = 255)
     private String name;
 
-    @EnumeratedValue
-    @Column (nullable = false)
-    private Type type;
+    @Enumerated(EnumType.STRING)
+    @Column (nullable = false, length = 50)
+    private AccountType type;
 
     @Column (nullable = false, insertable = false, updatable = false)
     private Instant createdAt;
