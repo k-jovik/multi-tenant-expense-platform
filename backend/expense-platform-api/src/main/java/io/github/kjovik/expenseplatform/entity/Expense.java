@@ -3,15 +3,19 @@ package io.github.kjovik.expenseplatform.entity;
 
 import io.github.kjovik.expenseplatform.enums.ExpenseStatus;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
-@Table
+@Table (name = "expenses")
 public class Expense {
     @Id
     @GeneratedValue (strategy = GenerationType.UUID)
@@ -29,10 +33,10 @@ public class Expense {
     @Column (nullable = false, length = 3)
     private String currency;
 
-    @Column (nullable = false, insertable = false, updatable = false)
+    @Column (nullable = false, precision = 18, scale = 8)
     private BigDecimal fxRateAtSubmission;
 
-    @Column (nullable = false)
+    @Column (nullable = false, length = 100)
     private String category;
 
     @Column (length = 500)
@@ -44,8 +48,9 @@ public class Expense {
     @Column (length = 5000)
     private String receiptText;
 
-    @Column (nullable = false)
-    private ExpenseStatus expenseStatus = ExpenseStatus.DRAFT;
+    @Enumerated(EnumType.STRING)
+    @Column (nullable = false, length = 20)
+    private ExpenseStatus status = ExpenseStatus.DRAFT;
 
     @Column
     private UUID approvedById;
@@ -62,9 +67,9 @@ public class Expense {
     @Column ( nullable = false, insertable = false, updatable = false)
     private Instant createdAt;
 
-    @Column (updatable = false)
+    @Column
     private Instant submittedAt;
-    @Column (updatable = false)
+    @Column
     private Instant approvedAt;
 
 }
