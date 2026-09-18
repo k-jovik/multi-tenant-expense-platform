@@ -6,6 +6,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -58,7 +60,8 @@ public class Expense {
     @Column (length = 500)
     private String rejectionReason;
 
-    @Column (nullable = false)
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column (nullable = false, columnDefinition = "jsonb")
     private String anomalyFlags = "{}";
 
     @Column ( length = 255)

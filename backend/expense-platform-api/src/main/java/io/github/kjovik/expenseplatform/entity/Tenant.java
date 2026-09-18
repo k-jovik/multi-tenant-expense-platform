@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -24,6 +26,7 @@ public class Tenant {
     @Column (nullable = false, insertable = false, updatable = false)
     private Instant createdAt;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column (columnDefinition = "jsonb")
     private String metadata;
 }
