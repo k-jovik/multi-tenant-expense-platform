@@ -6,6 +6,8 @@ import io.github.kjovik.expenseplatform.dto.RegisterRequest;
 import io.github.kjovik.expenseplatform.entity.Tenant;
 import io.github.kjovik.expenseplatform.entity.User;
 import io.github.kjovik.expenseplatform.enums.Role;
+import io.github.kjovik.expenseplatform.exception.ConflictException;
+import io.github.kjovik.expenseplatform.exception.InvalidCredentialsException;
 import io.github.kjovik.expenseplatform.repository.TenantRepository;
 import io.github.kjovik.expenseplatform.repository.UserRepository;
 import io.github.kjovik.expenseplatform.util.JwtUtil;
@@ -14,8 +16,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.swing.text.html.Option;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +29,7 @@ public class AuthService {
     public AuthResponse register(RegisterRequest registerRequest) {
 
         if (tenantRepository.findByName(registerRequest.tenantName()).isPresent()){
-            throw new RuntimeException("Tenant name already exists");
+            throw new ConflictException("Tenant name already exists");
         }
 
         Tenant tenant = new Tenant();
@@ -49,14 +49,14 @@ public class AuthService {
     @Transactional
     public AuthResponse login(LoginRequest loginRequest) {
         Tenant tenant = tenantRepository.findByName(loginRequest.tenantName())
-                .orElseThrow(() -> new RuntimeException("Invalid Credentials"));
+                .orElseThrow(() -> new InvalidCredentialsException("Invalid Credentials"));
         User user = userRepository.findByTenantIdAndEmail(tenant.getId(),loginRequest.email())
-                .orElseThrow(() -> new RuntimeException("Invalid Credentials"));
+                .orElseThrow(() -> new InvalidCredentialsException("Invalid Credentials"));
 
         String pass = user.getPasswordHash();
 
         if (!passwordEncoder.matches(loginRequest.password(), pass)){
-            throw new RuntimeException("Invalid Credentials");
+            throw new InvalidCredentialsException("Invalid Credentials");
         }
 
         String token = jwtUtil.generateToken(user);
