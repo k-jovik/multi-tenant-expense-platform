@@ -2,6 +2,7 @@ package io.github.kjovik.expenseplatform.controller;
 
 
 import io.github.kjovik.expenseplatform.dto.AuthResponse;
+import io.github.kjovik.expenseplatform.dto.LoginRequest;
 import io.github.kjovik.expenseplatform.dto.RegisterRequest;
 import io.github.kjovik.expenseplatform.service.AuthService;
 import org.springframework.http.HttpStatus;
@@ -25,5 +26,11 @@ public class AuthController {
     public ResponseEntity<AuthResponse>register(@RequestBody RegisterRequest request){
         AuthResponse response = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<AuthResponse>login(@RequestBody LoginRequest request){
+        AuthResponse response = authService.login(request);
+        return ResponseEntity.ok(response);
     }
 }
