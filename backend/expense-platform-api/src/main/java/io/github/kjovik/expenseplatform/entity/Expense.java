@@ -36,7 +36,7 @@ public class Expense {
     private String currency;
 
     @Column (nullable = false, precision = 18, scale = 8)
-    private BigDecimal fxRateAtSubmission;
+    private BigDecimal fxRateAtSubmission = BigDecimal.ONE;
 
     @Column (nullable = false, length = 100)
     private String category;
