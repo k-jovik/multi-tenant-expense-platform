@@ -2,6 +2,7 @@ package io.github.kjovik.expenseplatform.util;
 
 
 import io.github.kjovik.expenseplatform.entity.User;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,5 +37,13 @@ public class JwtUtil {
                 .expiration(expiry)
                 .signWith(signingKey)
                 .compact();
+    }
+
+    public Claims parse(String token) {
+        return Jwts.parser()
+                .verifyWith(signingKey)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
     }
 }
