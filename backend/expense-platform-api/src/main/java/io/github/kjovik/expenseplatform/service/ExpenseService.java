@@ -7,13 +7,13 @@ import io.github.kjovik.expenseplatform.entity.Expense;
 import io.github.kjovik.expenseplatform.entity.Tenant;
 import io.github.kjovik.expenseplatform.enums.ExpenseStatus;
 import io.github.kjovik.expenseplatform.repository.ExpenseRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -41,9 +41,16 @@ public class ExpenseService {
         return ExpenseResponse.from(saved);
     }
 
-    @Transactional
+    @Transactional (readOnly = true)
     public List<ExpenseResponse> list(){
         UUID tenant = TenantContext.getTenantId();
         return expenseRepository.findByTenantId(tenant).stream().map(ExpenseResponse::from).toList();
+    }
+
+    @Transactional (readOnly = true)
+    public List<ExpenseResponse> listPendingExpenses(){
+        UUID tenantId = TenantContext.getTenantId();
+        List<Expense> expenses = expenseRepository.findByTenantIdAndStatus(tenantId,ExpenseStatus.SUBMITTED);
+        return expenses.stream().map(ExpenseResponse::from).toList();
     }
 }

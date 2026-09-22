@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,5 +28,11 @@ public class ExpenseController {
     @GetMapping("/expenses")
     public ResponseEntity<List<ExpenseResponse>> getAllExpenses() {
         return ResponseEntity.ok(expenseService.list());
+    }
+
+    @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
+    @GetMapping("/expenses/pending")
+    public ResponseEntity<List<ExpenseResponse>> getPendingExpenses() {
+        return ResponseEntity.ok(expenseService.listPendingExpenses());
     }
 }
