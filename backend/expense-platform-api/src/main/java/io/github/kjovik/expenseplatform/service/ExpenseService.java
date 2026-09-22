@@ -6,6 +6,8 @@ import io.github.kjovik.expenseplatform.dto.ExpenseResponse;
 import io.github.kjovik.expenseplatform.entity.Expense;
 import io.github.kjovik.expenseplatform.entity.Tenant;
 import io.github.kjovik.expenseplatform.enums.ExpenseStatus;
+import io.github.kjovik.expenseplatform.exception.ConflictException;
+import io.github.kjovik.expenseplatform.exception.ResourceNotFoundException;
 import io.github.kjovik.expenseplatform.repository.ExpenseRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -52,5 +54,21 @@ public class ExpenseService {
         UUID tenantId = TenantContext.getTenantId();
         List<Expense> expenses = expenseRepository.findByTenantIdAndStatus(tenantId,ExpenseStatus.SUBMITTED);
         return expenses.stream().map(ExpenseResponse::from).toList();
+    }
+
+
+    @Transactional
+    public ExpenseResponse approve(UUID id) {
+        UUID tenantId = TenantContext.getTenantId();
+        Expense expense = expenseRepository.findByTenantIdAndId(tenantId,id)
+                .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
+        if (expense.getStatus() != ExpenseStatus.SUBMITTED) {
+            throw new ConflictException("Only submitted expenses can be approved");
+        }
+        expense.setStatus(ExpenseStatus.APPROVED);
+        expense.setApprovedById(TenantContext.getUserId());
+        expense.setApprovedAt(Instant.now());
+        Expense saved = expenseRepository.save(expense);
+        return ExpenseResponse.from(saved);
     }
 }

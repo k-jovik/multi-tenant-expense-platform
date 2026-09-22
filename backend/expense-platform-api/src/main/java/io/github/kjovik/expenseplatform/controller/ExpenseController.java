@@ -12,6 +12,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api")
@@ -34,5 +35,12 @@ public class ExpenseController {
     @GetMapping("/expenses/pending")
     public ResponseEntity<List<ExpenseResponse>> getPendingExpenses() {
         return ResponseEntity.ok(expenseService.listPendingExpenses());
+    }
+
+    @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
+    @PatchMapping("/expenses/{id}/approve")
+    public ResponseEntity<ExpenseResponse> approveExpense(@PathVariable UUID id) {
+        ExpenseResponse resp = expenseService.approve(id);
+        return ResponseEntity.ok(resp);
     }
 }
