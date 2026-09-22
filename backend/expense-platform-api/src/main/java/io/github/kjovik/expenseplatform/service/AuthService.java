@@ -3,11 +3,14 @@ package io.github.kjovik.expenseplatform.service;
 import io.github.kjovik.expenseplatform.dto.AuthResponse;
 import io.github.kjovik.expenseplatform.dto.LoginRequest;
 import io.github.kjovik.expenseplatform.dto.RegisterRequest;
+import io.github.kjovik.expenseplatform.entity.Account;
 import io.github.kjovik.expenseplatform.entity.Tenant;
 import io.github.kjovik.expenseplatform.entity.User;
+import io.github.kjovik.expenseplatform.enums.AccountType;
 import io.github.kjovik.expenseplatform.enums.Role;
 import io.github.kjovik.expenseplatform.exception.ConflictException;
 import io.github.kjovik.expenseplatform.exception.InvalidCredentialsException;
+import io.github.kjovik.expenseplatform.repository.AccountRepository;
 import io.github.kjovik.expenseplatform.repository.TenantRepository;
 import io.github.kjovik.expenseplatform.repository.UserRepository;
 import io.github.kjovik.expenseplatform.util.JwtUtil;
@@ -15,6 +18,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 
 @Service
@@ -24,6 +29,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final AccountRepository accountRepository;
 
     @Transactional
     public AuthResponse register(RegisterRequest registerRequest) {
@@ -41,10 +47,29 @@ public class AuthService {
         user.setTenantId(tenant.getId());
         user.setRole(Role.ADMIN);
         user = userRepository.save(user);
+
+        seedAccounts(tenant.getId(),user.getId());
+
         String token = jwtUtil.generateToken(user);
         return new AuthResponse(token, user.getId(), user.getRole().name(),tenant.getId());
     }
 
+    private void seedAccounts(UUID tenantId, UUID userId) {
+        saveAccount(tenantId,"Cash",AccountType.CASH);
+        saveAccount(tenantId,"Expense:Meals",AccountType.EXPENSE);
+        saveAccount(tenantId,"Expense:Travel",AccountType.EXPENSE);
+        saveAccount(tenantId,"Expense:Software",AccountType.EXPENSE);
+        saveAccount(tenantId,"Expense:Equipment",AccountType.EXPENSE);
+        saveAccount(tenantId,"Payable:" + userId,AccountType.PAYABLE);
+    }
+
+    private void saveAccount (UUID tenantId, String name, AccountType type) {
+        Account account = new Account();
+        account.setTenantId(tenantId);
+        account.setName(name);
+        account.setType(type);
+        accountRepository.save(account);
+    }
 
     @Transactional
     public AuthResponse login(LoginRequest loginRequest) {
