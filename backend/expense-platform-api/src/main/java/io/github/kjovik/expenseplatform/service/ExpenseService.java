@@ -3,12 +3,15 @@ package io.github.kjovik.expenseplatform.service;
 import io.github.kjovik.expenseplatform.context.TenantContext;
 import io.github.kjovik.expenseplatform.dto.ExpenseRequest;
 import io.github.kjovik.expenseplatform.dto.ExpenseResponse;
-import io.github.kjovik.expenseplatform.entity.Expense;
-import io.github.kjovik.expenseplatform.entity.Tenant;
+import io.github.kjovik.expenseplatform.entity.*;
+import io.github.kjovik.expenseplatform.enums.EntryType;
 import io.github.kjovik.expenseplatform.enums.ExpenseStatus;
 import io.github.kjovik.expenseplatform.exception.ConflictException;
 import io.github.kjovik.expenseplatform.exception.ResourceNotFoundException;
+import io.github.kjovik.expenseplatform.repository.AccountRepository;
 import io.github.kjovik.expenseplatform.repository.ExpenseRepository;
+import io.github.kjovik.expenseplatform.repository.JournalEntryRepository;
+import io.github.kjovik.expenseplatform.repository.JournalLineRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class ExpenseService {
 
     private final ExpenseRepository expenseRepository;
+    private final JournalEntryRepository journalEntryRepository;
+    private final JournalLineRepository journalLineRepository;
+    private final AccountRepository accountRepository;
 
     @Transactional
     public ExpenseResponse createExpense(ExpenseRequest expenseRequest) {
@@ -69,6 +75,34 @@ public class ExpenseService {
         expense.setApprovedById(TenantContext.getUserId());
         expense.setApprovedAt(Instant.now());
         Expense saved = expenseRepository.save(expense);
+
+        JournalEntry journalEntry = new JournalEntry();
+        journalEntry.setEntryType(EntryType.APPROVAL);
+        journalEntry.setExpenseId(saved.getId());
+        journalEntry.setTenantId(tenantId);
+        journalEntry = journalEntryRepository.save(journalEntry);
+
+
+        JournalLine debitLine = new JournalLine();
+        JournalLine creditLine = new JournalLine();
+        debitLine.setJournalEntryId(journalEntry.getId());
+        creditLine.setJournalEntryId(journalEntry.getId());
+
+        Account expenseAccount = accountRepository.findByTenantIdAndName(tenantId,"Expense:" + saved.getCategory())
+                .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
+
+        Account payableAccount = accountRepository.findByTenantIdAndName(tenantId,"Payable:" + saved.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
+
+        debitLine.setAccountId(expenseAccount.getId());
+        creditLine.setAccountId(payableAccount.getId());
+
+        debitLine.setAmountMinor(saved.getAmountMinor());
+        creditLine.setAmountMinor(-saved.getAmountMinor());
+
+        journalLineRepository.save(debitLine);
+        journalLineRepository.save(creditLine);
+
         return ExpenseResponse.from(saved);
     }
 }
