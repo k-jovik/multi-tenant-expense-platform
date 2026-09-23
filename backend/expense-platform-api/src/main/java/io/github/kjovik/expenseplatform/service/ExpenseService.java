@@ -105,4 +105,17 @@ public class ExpenseService {
 
         return ExpenseResponse.from(saved);
     }
+
+    @Transactional
+    public ExpenseResponse reject(UUID expenseId, String reason){
+        Expense expense = expenseRepository.findByTenantIdAndId(TenantContext.getTenantId(),expenseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
+        if (expense.getStatus() != ExpenseStatus.SUBMITTED) {
+            throw new ConflictException("Only submitted expenses can be rejected");
+        }
+        expense.setStatus(ExpenseStatus.REJECTED);
+        expense.setRejectionReason(reason);
+        expense = expenseRepository.save(expense);
+        return ExpenseResponse.from(expense);
+    }
 }

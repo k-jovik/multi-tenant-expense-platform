@@ -2,6 +2,7 @@ package io.github.kjovik.expenseplatform.controller;
 
 import io.github.kjovik.expenseplatform.dto.ExpenseRequest;
 import io.github.kjovik.expenseplatform.dto.ExpenseResponse;
+import io.github.kjovik.expenseplatform.dto.RejectRequest;
 import io.github.kjovik.expenseplatform.entity.Expense;
 import io.github.kjovik.expenseplatform.service.ExpenseService;
 import jakarta.validation.Valid;
@@ -42,5 +43,12 @@ public class ExpenseController {
     public ResponseEntity<ExpenseResponse> approveExpense(@PathVariable UUID id) {
         ExpenseResponse resp = expenseService.approve(id);
         return ResponseEntity.ok(resp);
+    }
+
+    @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
+    @PatchMapping("/expenses/{id}/reject")
+    public ResponseEntity<ExpenseResponse> rejectExpense(@PathVariable UUID id, @RequestBody RejectRequest request) {
+        ExpenseResponse response = expenseService.reject(id, request.reason());
+        return ResponseEntity.ok(response);
     }
 }

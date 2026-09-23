@@ -11,7 +11,8 @@ public record ExpenseResponse(
         String currency,
         String category,
         String description,
-        String status
+        String status,
+        String rejectionReason
 ) {
     public static ExpenseResponse from(Expense expense) {
         return new ExpenseResponse(
@@ -20,7 +21,8 @@ public record ExpenseResponse(
                 expense.getCurrency(),
                 expense.getCategory(),
                 expense.getDescription(),
-                expense.getStatus().name()
+                expense.getStatus().name(),
+                expense.getRejectionReason()
         );
     }
 }
