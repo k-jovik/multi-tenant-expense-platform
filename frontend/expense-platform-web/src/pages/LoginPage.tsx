@@ -95,7 +95,7 @@ export default function LoginPage() {
                         </p>
                     </CardFooter>
                 </form>
-            </Card>
+            </Card>     
         </div>
     )
 }
