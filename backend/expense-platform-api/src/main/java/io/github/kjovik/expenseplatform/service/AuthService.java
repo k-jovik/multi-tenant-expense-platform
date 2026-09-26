@@ -46,6 +46,7 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(registerRequest.password()));
         user.setTenantId(tenant.getId());
         user.setRole(Role.ADMIN);
+        user.setFullName(registerRequest.fullName());
         user = userRepository.save(user);
 
         seedAccounts(tenant.getId(),user.getId());
