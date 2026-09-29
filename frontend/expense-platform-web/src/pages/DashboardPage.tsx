@@ -1,27 +1,22 @@
-import { useQuery } from '@tanstack/react-query';
-import api from '@/lib/api';
-import type { Expense } from '@/types/api';
-import { useAccounts } from '@/hooks/useAccounts';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-
-function formatCurrency(amountMinor: number): string {
-  return `$${(amountMinor / 100).toFixed(2)}`;
-}
+import { useQuery } from "@tanstack/react-query";
+import api from "@/lib/api";
+import type { Expense } from "@/types/api";
+import { useAccounts } from "@/hooks/useAccounts";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { formatCurrency } from "@/lib/format";
+import { useExpenses } from "@/hooks/useExpenses";
 
 export default function DashboardPage() {
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
 
   const { data: pending } = useQuery({
-    queryKey: ['expenses', 'pending'],
+    queryKey: ["expenses", "pending"],
     queryFn: () =>
-      api.get<Expense[]>('/api/expenses/pending').then(r => r.data),
+      api.get<Expense[]>("/api/expenses/pending").then((r) => r.data),
   });
 
-  const { data: expenses } = useQuery({
-    queryKey: ['expenses'],
-    queryFn: () => api.get<Expense[]>('/api/expenses').then(r => r.data),
-  });
+  const { data: expenses } = useExpenses();
 
   if (accountsLoading) {
     return <div className="text-muted-foreground">Loading...</div>;
@@ -33,11 +28,11 @@ export default function DashboardPage() {
 
       {/* Balance cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {accounts?.map(account => (
+        {accounts?.map((account) => (
           <Card key={account.id}>
             <CardHeader>
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                {account.type === 'PAYABLE' ? 'Payable' : account.name}
+                {account.type === "PAYABLE" ? "Payable" : account.name}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -62,7 +57,7 @@ export default function DashboardPage() {
         <h2 className="text-lg font-semibold mb-3">Recent expenses</h2>
         {expenses && expenses.length > 0 ? (
           <div className="border rounded-md divide-y">
-            {expenses.slice(0, 5).map(expense => (
+            {expenses.slice(0, 5).map((expense) => (
               <div
                 key={expense.id}
                 className="flex items-center justify-between p-3"

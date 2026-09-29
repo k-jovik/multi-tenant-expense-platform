@@ -23,6 +23,12 @@ export default function NavBar() {
         >
           Dashboard
         </Link>
+        <Link
+          to="/expenses"
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          Expenses
+        </Link>
         <div className="ml-auto flex items-center gap-4">
           <span className="text-sm text-muted-foreground">{user?.role}</span>
           <Button variant="outline" size="sm" onClick={handleLogout}>

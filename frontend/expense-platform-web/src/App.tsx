@@ -5,6 +5,8 @@ import LoginPage from "@/pages/LoginPage";
 import RegisterPage from "@/pages/RegisterPage";
 import DashboardPage from "@/pages/DashboardPage";
 import Layout from "./components/Layout";
+import AddExpenesePage from "@/pages/AddExpensePage"
+import ExpenseListPage from "./pages/ExpenseListPage";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -27,8 +29,11 @@ export default function App() {
         }
       >
         <Route path="/" element={<DashboardPage />}></Route>
+        <Route path="/expenses" element={<ExpenseListPage/>}></Route>
+        <Route path="/expenses/add" element={<AddExpenesePage/>}></Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
+
     </Routes>
   );
 }
