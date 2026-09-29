@@ -10,11 +10,7 @@ import { useExpenses } from "@/hooks/useExpenses";
 export default function DashboardPage() {
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
 
-  const { data: pending } = useQuery({
-    queryKey: ["expenses", "pending"],
-    queryFn: () =>
-      api.get<Expense[]>("/api/expenses/pending").then((r) => r.data),
-  });
+  const { data: pending } = useExpenses();
 
   const { data: expenses } = useExpenses();
 
