@@ -1,20 +1,25 @@
-import { useQuery } from "@tanstack/react-query";
-import api from "@/lib/api";
-import type { Expense } from "@/types/api";
 import { useAccounts } from "@/hooks/useAccounts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/format";
 import { useExpenses } from "@/hooks/useExpenses";
 
+const LEDGER_CURRENCY = "USD";
+
 export default function DashboardPage() {
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
+  const { data: expenses, isLoading: expensesLoading } = useExpenses();
 
-  const { data: pending } = useExpenses();
+  const pendingExpenses = expenses?.filter((exp) => exp.status === "SUBMITTED");
 
-  const { data: expenses } = useExpenses();
+  const recentExpenses = [...(expenses ?? [])]
+    .sort(
+      (a, b) =>
+        new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime(),
+    )
+    .slice(0, 5);
 
-  if (accountsLoading) {
+  if (accountsLoading || expensesLoading) {
     return <div className="text-muted-foreground">Loading...</div>;
   }
 
@@ -22,7 +27,6 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Dashboard</h1>
 
-      {/* Balance cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {accounts?.map((account) => (
           <Card key={account.id}>
@@ -33,27 +37,25 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">
-                {formatCurrency(account.balanceMinor)}
+                {formatCurrency(account.balanceMinor, LEDGER_CURRENCY)}
               </p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Pending count */}
       <Card>
         <CardContent className="pt-6">
           <p className="text-sm text-muted-foreground">Pending approvals</p>
-          <p className="text-3xl font-bold">{pending?.length ?? 0}</p>
+          <p className="text-3xl font-bold">{pendingExpenses?.length ?? 0}</p>
         </CardContent>
       </Card>
 
-      {/* Recent expenses */}
       <div>
         <h2 className="text-lg font-semibold mb-3">Recent expenses</h2>
-        {expenses && expenses.length > 0 ? (
+        {recentExpenses.length > 0 ? (
           <div className="border rounded-md divide-y">
-            {expenses.slice(0, 5).map((expense) => (
+            {recentExpenses.map((expense) => (
               <div
                 key={expense.id}
                 className="flex items-center justify-between p-3"
@@ -66,7 +68,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-mono">
-                    {formatCurrency(expense.amountMinor)}
+                    {formatCurrency(expense.amountMinor, expense.currency)}
                   </span>
                   <Badge>{expense.status}</Badge>
                 </div>
