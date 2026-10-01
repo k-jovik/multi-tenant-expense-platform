@@ -12,7 +12,9 @@ public record ExpenseResponse(
         String category,
         String description,
         String status,
-        String rejectionReason
+        String rejectionReason,
+        Instant submittedAt,
+        Instant approvedAt
 ) {
     public static ExpenseResponse from(Expense expense) {
         return new ExpenseResponse(
@@ -22,7 +24,9 @@ public record ExpenseResponse(
                 expense.getCategory(),
                 expense.getDescription(),
                 expense.getStatus().name(),
-                expense.getRejectionReason()
+                expense.getRejectionReason(),
+                expense.getSubmittedAt(),
+                expense.getApprovedAt()
         );
     }
 }
