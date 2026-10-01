@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { ExpenseStatus } from "@/types/api";
+import { useNavigate } from "react-router-dom";
 
 const FILTER_OPTIONS = [
   { label: "All", value: "ALL" },
@@ -27,6 +28,7 @@ type Filter = ExpenseStatus | "ALL";
 export default function ExpenseListPage() {
   const { data: expenses, isLoading } = useExpenses();
   const [statusFilter, setStatusFilter] = useState<Filter>("ALL");
+  const navigate = useNavigate();
 
   if (isLoading) {
     return <div className="text-muted-foreground">Loading...</div>;
@@ -83,7 +85,10 @@ export default function ExpenseListPage() {
             </TableRow>
           ) : (
             filtered.map((expense) => (
-              <TableRow key={expense.id}>
+              <TableRow
+                key={expense.id}
+                onClick={() => navigate(`/expenses/${expense.id}`)}
+              >
                 <TableCell className="font-medium">
                   {expense.category}
                 </TableCell>
@@ -93,7 +98,7 @@ export default function ExpenseListPage() {
                 <TableCell>{expense.currency}</TableCell>
                 <TableCell>{expense.description}</TableCell>
                 <TableCell className="text-right font-mono">
-                  {formatCurrency(expense.amountMinor)}
+                  {formatCurrency(expense.amountMinor, expense.currency)}
                 </TableCell>
               </TableRow>
             ))
@@ -104,9 +109,14 @@ export default function ExpenseListPage() {
             <TableRow>
               <TableCell colSpan={4}>Total</TableCell>
               <TableCell className="text-right font-mono">
-                {formatCurrency(
-                  filtered.reduce((sum, e) => sum + e.amountMinor, 0),
-                )}
+                {Object.entries(
+                  filtered.reduce<Record<string, number>>((acc, e) => {
+                    acc[e.currency] = (acc[e.currency] ?? 0) + e.amountMinor;
+                    return acc;
+                  }, {}),
+                )
+                  .map(([currency, minor]) => formatCurrency(minor, currency))
+                  .join(" · ")}
               </TableCell>
             </TableRow>
           </TableFooter>
