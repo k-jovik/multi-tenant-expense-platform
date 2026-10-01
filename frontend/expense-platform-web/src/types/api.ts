@@ -37,6 +37,8 @@ export interface Expense {
   description: string | null;
   status: ExpenseStatus;
   rejectionReason: string | null;
+  submittedAt: string;  
+  approvedAt?: string;
 }
 
 export interface RejectRequest {
