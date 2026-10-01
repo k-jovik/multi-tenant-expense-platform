@@ -1,12 +1,12 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { useQueryClient } from '@tanstack/react-query';
-import api from '@/lib/api';
-import type { Expense } from '@/types/api';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
+import api from "@/lib/api";
+import type { Expense } from "@/types/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -14,22 +14,23 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from "@/components/ui/card";
+import axios from "axios";
 
 interface ExpenseFormData {
-  amount: number;
+  amount: string;
   currency: string;
   category: string;
-  description: string;
+  description?: string;
 }
 
-const CURRENCIES = ['USD', 'EUR', 'GBP', 'MKD'];
-const CATEGORIES = ['Meals', 'Travel', 'Software', 'Equipment'];
+const CURRENCIES = ["USD", "EUR", "GBP", "MKD"];
+const CATEGORIES = ["Meals", "Travel", "Software", "Equipment"];
 
 export default function AddExpensePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState<string>("");
 
   const {
     register,
@@ -37,34 +38,47 @@ export default function AddExpensePage() {
     formState: { isSubmitting },
   } = useForm<ExpenseFormData>({
     defaultValues: {
-      currency: 'USD',
-      category: 'Meals',
+      currency: "USD",
+      category: "Meals",
     },
   });
 
+  function parseAmountToMinor(input: string): number | null {
+    const trimmed = input.trim();
+    // allow "5", "5.5", "5.50", "5.123"
+    if (!/^\d+(\.\d{1,})?$/.test(trimmed)) return null;
+
+    const [whole, frac = ""] = trimmed.split(".");
+    const fracPadded = (frac + "00").slice(0, 2); // truncate to 2 digits
+    return Number(whole) * 100 + Number(fracPadded);
+  }
+
   const onSubmit = async (data: ExpenseFormData) => {
-    setError('');
+    setError("");
+    const amountMinor = parseAmountToMinor(data.amount);
 
-    const amountMinor = Math.round(data.amount * 100);
-
-    if (isNaN(amountMinor) || amountMinor <= 0) {
-      setError('Amount must be a positive number.');
+    if (amountMinor === null || amountMinor <= 0) {
+      setError("Amount must be a positive number.");
       return;
     }
 
     try {
-      await api.post<Expense>('/api/expenses', {
+      await api.post<Expense>("/api/expenses", {
         amountMinor,
         currency: data.currency,
         category: data.category,
         description: data.description,
       });
 
-      await queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      await queryClient.invalidateQueries({ queryKey: ["expenses"] });
 
-      navigate('/expenses');
-    } catch {
-      setError('Failed to submit expense. Please try again.');
+      navigate("/expenses");
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError("Failed to submit expense. Please try again.");
+      }
     }
   };
 
@@ -86,7 +100,7 @@ export default function AddExpensePage() {
                 step="0.01"
                 min="0.01"
                 placeholder="5.00"
-                {...register('amount', { required: true, valueAsNumber: true })}
+                {...register("amount", { required: true })}
               />
             </div>
 
@@ -94,7 +108,7 @@ export default function AddExpensePage() {
               <Label htmlFor="currency">Currency</Label>
               <select
                 id="currency"
-                {...register('currency', { required: true })}
+                {...register("currency", { required: true })}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 {CURRENCIES.map((c) => (
@@ -109,7 +123,7 @@ export default function AddExpensePage() {
               <Label htmlFor="category">Category</Label>
               <select
                 id="category"
-                {...register('category', { required: true })}
+                {...register("category", { required: true })}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 {CATEGORIES.map((c) => (
@@ -125,7 +139,7 @@ export default function AddExpensePage() {
               <Input
                 id="description"
                 placeholder="What was this for?"
-                {...register('description')}
+                {...register("description")}
               />
             </div>
 
@@ -134,7 +148,7 @@ export default function AddExpensePage() {
 
           <CardFooter className="flex flex-col gap-3">
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Submitting...' : 'Submit'}
+              {isSubmitting ? "Submitting..." : "Submit"}
             </Button>
             <Link
               to="/expenses"
