@@ -18,7 +18,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import api, { getApiErrorMessage } from "@/lib/api";
 
@@ -141,6 +140,14 @@ export default function ExpenseDetailPage() {
                   {approveMutation.isPending ? "Approving..." : "Approve"}
                 </Button>
 
+                <Button
+                  variant="destructive"
+                  onClick={() => setRejectDialogOpen(true)}
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Reject
+                </Button>
+
                 <Dialog
                   open={rejectDialogOpen}
                   onOpenChange={(open) => {
@@ -148,13 +155,6 @@ export default function ExpenseDetailPage() {
                     if (!open) setRejectReason("");
                   }}
                 >
-                  <DialogTrigger asChild>
-                    <Button variant="destructive">
-                      <X className="mr-2 h-4 w-4" />
-                      Reject
-                    </Button>
-                  </DialogTrigger>
-
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Reject Expense</DialogTitle>
