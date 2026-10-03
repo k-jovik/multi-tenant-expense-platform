@@ -39,6 +39,9 @@ Thumbs.db
 .env
 .env.local
 *.log
+.env.*.local
+.env.production
+.env.development
 
 # Postgres local data (if you ever mount volumes to disk)
 pgdata/
