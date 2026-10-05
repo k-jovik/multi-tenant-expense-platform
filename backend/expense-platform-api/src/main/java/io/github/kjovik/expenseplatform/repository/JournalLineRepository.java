@@ -11,7 +11,7 @@ import java.util.UUID;
 
 public interface JournalLineRepository extends JpaRepository<JournalLine, UUID> {
     List<JournalLine> findByAccountId(UUID id);
-
+    List<JournalLine> findByJournalEntryId(UUID journalEntryId);
 
     @Query(
             "select jL.accountId as accountId, sum (jL.amountMinor) as balance " +
