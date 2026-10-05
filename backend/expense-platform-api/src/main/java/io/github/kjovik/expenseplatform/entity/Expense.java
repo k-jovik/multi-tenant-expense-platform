@@ -75,4 +75,12 @@ public class Expense {
     @Column
     private Instant approvedAt;
 
+    private Instant reversedAt;
+
+    @Column(name = "reversed_by_id")
+    private UUID reversedById;
+
+    @Column(name = "reversal_reason")
+    private String reversalReason;
+
 }

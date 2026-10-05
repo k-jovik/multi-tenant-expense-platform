@@ -31,4 +31,7 @@ public class JournalEntry {
 
     @Column (nullable = false, insertable = false,updatable = false)
     private Instant createdAt;
+
+    @Column(name = "reverses_entry_id")
+    private UUID reversesEntryId;
 }
