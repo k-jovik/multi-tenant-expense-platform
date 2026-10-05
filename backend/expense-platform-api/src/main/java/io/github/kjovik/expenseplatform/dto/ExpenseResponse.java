@@ -14,7 +14,10 @@ public record ExpenseResponse(
         String status,
         String rejectionReason,
         Instant submittedAt,
-        Instant approvedAt
+        Instant approvedAt,
+        Instant reversedAt,
+        UUID reversedById,
+        String reversalReason
 ) {
     public static ExpenseResponse from(Expense expense) {
         return new ExpenseResponse(
@@ -26,7 +29,10 @@ public record ExpenseResponse(
                 expense.getStatus().name(),
                 expense.getRejectionReason(),
                 expense.getSubmittedAt(),
-                expense.getApprovedAt()
+                expense.getApprovedAt(),
+                expense.getReversedAt(),
+                expense.getReversedById(),
+                expense.getReversalReason()
         );
     }
 }
