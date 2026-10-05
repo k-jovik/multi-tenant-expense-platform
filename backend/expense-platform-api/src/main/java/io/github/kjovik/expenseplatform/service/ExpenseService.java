@@ -118,4 +118,42 @@ public class ExpenseService {
         expense = expenseRepository.save(expense);
         return ExpenseResponse.from(expense);
     }
+
+    @Transactional
+    public ExpenseResponse reverse(UUID id, String reason){
+        UUID tenantId = TenantContext.getTenantId();
+        UUID userId = TenantContext.getUserId();
+        Expense expense = expenseRepository.findByTenantIdAndId(tenantId,id)
+                .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
+        if (expense.getStatus() != ExpenseStatus.APPROVED) {
+            throw new ConflictException("Only approved expenses can be reversed");
+        }
+        JournalEntry entry = journalEntryRepository.findByExpenseIdAndEntryType(expense.getId(),EntryType.APPROVAL)
+                        .orElseThrow(() -> new ResourceNotFoundException("Original journal entry not found"));
+
+        expense.setStatus(ExpenseStatus.REVERSED);
+        expense.setReversedById(userId);
+        expense.setReversedAt(Instant.now());
+        expense.setReversalReason(reason);
+        Expense saved = expenseRepository.save(expense);
+
+        JournalEntry newEntry = new JournalEntry();
+        newEntry.setReversesEntryId(entry.getId());
+        newEntry.setEntryType(EntryType.REVERSAL);
+        newEntry.setExpenseId(saved.getId());
+        newEntry.setTenantId(tenantId);
+        journalEntryRepository.save(newEntry);
+
+
+        List<JournalLine> oldJournalLines = journalLineRepository.findByJournalEntryId(entry.getId());
+        for (JournalLine journalLine : oldJournalLines) {
+            JournalLine reversed = new JournalLine();
+            reversed.setJournalEntryId(newEntry.getId());
+            reversed.setAccountId(journalLine.getAccountId());
+            reversed.setAmountMinor(-journalLine.getAmountMinor());
+            journalLineRepository.save(reversed);
+        }
+
+        return  ExpenseResponse.from(saved);
+    }
 }

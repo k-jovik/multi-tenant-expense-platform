@@ -3,6 +3,7 @@ package io.github.kjovik.expenseplatform.controller;
 import io.github.kjovik.expenseplatform.dto.ExpenseRequest;
 import io.github.kjovik.expenseplatform.dto.ExpenseResponse;
 import io.github.kjovik.expenseplatform.dto.RejectRequest;
+import io.github.kjovik.expenseplatform.dto.ReverseRequest;
 import io.github.kjovik.expenseplatform.entity.Expense;
 import io.github.kjovik.expenseplatform.service.ExpenseService;
 import jakarta.validation.Valid;
@@ -49,6 +50,14 @@ public class ExpenseController {
     @PatchMapping("/expenses/{id}/reject")
     public ResponseEntity<ExpenseResponse> rejectExpense(@PathVariable UUID id, @RequestBody RejectRequest request) {
         ExpenseResponse response = expenseService.reject(id, request.reason());
+        return ResponseEntity.ok(response);
+    }
+
+    @PreAuthorize("hasAnyRole('MANAGER','ADMIN')")
+    @PatchMapping("/expenses/{id}/reverse")
+    public ResponseEntity<ExpenseResponse> reverseExpense(@PathVariable UUID id,
+                                                          @Valid @RequestBody ReverseRequest request) {
+        ExpenseResponse response = expenseService.reverse(id,request.reason());
         return ResponseEntity.ok(response);
     }
 }
