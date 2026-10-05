@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, X } from "lucide-react";
+import { Check, X, RotateCcw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useExpenses } from "@/hooks/useExpenses";
 import type { Expense } from "@/types/api";
@@ -30,6 +30,8 @@ export default function ExpenseDetailPage() {
   const [error, setError] = useState("");
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [reverseDialogOpen, setReverseDialogOpen] = useState(false);
+  const [reverseReason, setReverseReason] = useState("");
 
   const hasAccess = user?.role === "ADMIN" || user?.role === "MANAGER";
 
@@ -63,6 +65,24 @@ export default function ExpenseDetailPage() {
     },
     onError: (err) =>
       setError(getApiErrorMessage(err, "Failed to reject. Please try again.")),
+  });
+
+  const reverseMutation = useMutation({
+    mutationFn: (reason: string) =>
+      api
+        .patch<Expense>(`/api/expenses/${id}/reverse`, { reason })
+        .then((res) => res.data),
+    onMutate: () => setError(""),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<Expense[]>(["expenses"], (old) =>
+        old?.map((e) => (e.id === updated.id ? updated : e)),
+      );
+      queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      setReverseDialogOpen(false);
+      setReverseReason("");
+    },
+    onError: (err) =>
+      setError(getApiErrorMessage(err, "Failed to reverse. Please try again.")),
   });
 
   if (isLoading) {
@@ -125,6 +145,16 @@ export default function ExpenseDetailPage() {
                   </span>
                   <span className="text-destructive">
                     {expense.rejectionReason}
+                  </span>
+                </>
+              )}
+              {expense.reversalReason && (
+                <>
+                  <span className="text-sm text-muted-foreground">
+                    Reversal reason
+                  </span>
+                  <span className="text-destructive">
+                    {expense.reversalReason}
                   </span>
                 </>
               )}
@@ -196,9 +226,59 @@ export default function ExpenseDetailPage() {
             )}
 
             {hasAccess && expense.status === "APPROVED" && (
-              <p className="text-sm text-muted-foreground pt-4 border-t">
-                This expense has already been approved.
-              </p>
+              <div>
+                <Button
+                  variant="default"
+                  onClick={() => setReverseDialogOpen(true)}
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Reverse
+                </Button>
+                <Dialog
+                  open={reverseDialogOpen}
+                  onOpenChange={(open) => {
+                    setReverseDialogOpen(open);
+                    if (!open) setReverseReason("");
+                  }}
+                >
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Reverse Expense</DialogTitle>
+                      <DialogDescription>
+                        This creates an offsetting journal entry. The original
+                        approval stays in the ledger for audit purposes.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-2 py-4">
+                      <Label htmlFor="reversal-reason">Reason</Label>
+                      <Input
+                        id="reversal-reason"
+                        value={reverseReason}
+                        onChange={(e) => setReverseReason(e.target.value)}
+                        placeholder="e.g. Duplicate submission"
+                      />
+                    </div>
+
+                    <DialogFooter>
+                      <Button
+                        variant="outline"
+                        onClick={() => setReverseDialogOpen(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={() => reverseMutation.mutate(reverseReason)}
+                        disabled={
+                          !reverseReason.trim() || reverseMutation.isPending
+                        }
+                      >
+                        {reverseMutation.isPending ? "Reversing..." : "Reverse"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
             )}
 
             {hasAccess && expense.status === "REJECTED" && (

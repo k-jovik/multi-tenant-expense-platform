@@ -39,6 +39,8 @@ export interface Expense {
   rejectionReason: string | null;
   submittedAt: string;  
   approvedAt?: string;
+  reversedById?: string;
+  reversalReason?: string;
 }
 
 export interface RejectRequest {
