@@ -1,5 +1,7 @@
 package io.github.kjovik.expenseplatform.service;
 
+import io.github.kjovik.expenseplatform.context.RlsContext;
+import io.github.kjovik.expenseplatform.context.TenantContext;
 import io.github.kjovik.expenseplatform.dto.AuthResponse;
 import io.github.kjovik.expenseplatform.dto.LoginRequest;
 import io.github.kjovik.expenseplatform.dto.RegisterRequest;
@@ -30,6 +32,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final AccountRepository accountRepository;
+    private final RlsContext rlsContext;
 
     @Transactional
     public AuthResponse register(RegisterRequest registerRequest) {
@@ -41,6 +44,9 @@ public class AuthService {
         Tenant tenant = new Tenant();
         tenant.setName(registerRequest.tenantName());
         tenant = tenantRepository.save(tenant);
+
+        rlsContext.setTenant(tenant.getId());
+
         User user = new User();
         user.setEmail(registerRequest.email());
         user.setPasswordHash(passwordEncoder.encode(registerRequest.password()));
@@ -76,6 +82,9 @@ public class AuthService {
     public AuthResponse login(LoginRequest loginRequest) {
         Tenant tenant = tenantRepository.findByName(loginRequest.tenantName())
                 .orElseThrow(() -> new InvalidCredentialsException("Invalid Credentials"));
+
+        rlsContext.setTenant(tenant.getId());
+
         User user = userRepository.findByTenantIdAndEmail(tenant.getId(),loginRequest.email())
                 .orElseThrow(() -> new InvalidCredentialsException("Invalid Credentials"));
 

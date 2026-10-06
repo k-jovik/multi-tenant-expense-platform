@@ -1,5 +1,6 @@
 package io.github.kjovik.expenseplatform.service;
 
+import io.github.kjovik.expenseplatform.context.RlsContext;
 import io.github.kjovik.expenseplatform.context.TenantContext;
 import io.github.kjovik.expenseplatform.dto.ExpenseRequest;
 import io.github.kjovik.expenseplatform.dto.ExpenseResponse;
@@ -18,6 +19,8 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -28,12 +31,14 @@ public class ExpenseService {
     private final JournalEntryRepository journalEntryRepository;
     private final JournalLineRepository journalLineRepository;
     private final AccountRepository accountRepository;
+    private final RlsContext rlsContext;
 
     @Transactional
     public ExpenseResponse createExpense(ExpenseRequest expenseRequest) {
         Expense expense = new Expense();
         UUID tenantId = TenantContext.getTenantId();
         expense.setTenantId(tenantId);
+        rlsContext.setTenant(tenantId);
         UUID userID = TenantContext.getUserId();
         expense.setUserId(userID);
         expense.setStatus(ExpenseStatus.SUBMITTED);
@@ -51,21 +56,24 @@ public class ExpenseService {
 
     @Transactional (readOnly = true)
     public List<ExpenseResponse> list(){
-        UUID tenant = TenantContext.getTenantId();
-        return expenseRepository.findByTenantId(tenant).stream().map(ExpenseResponse::from).toList();
+        UUID tenantId = TenantContext.getTenantId();
+        rlsContext.setTenant(tenantId);
+        return expenseRepository.findByTenantId(tenantId).stream().map(ExpenseResponse::from).toList();
     }
 
     @Transactional (readOnly = true)
     public List<ExpenseResponse> listPendingExpenses(){
         UUID tenantId = TenantContext.getTenantId();
+        rlsContext.setTenant(tenantId);
         List<Expense> expenses = expenseRepository.findByTenantIdAndStatus(tenantId,ExpenseStatus.SUBMITTED);
         return expenses.stream().map(ExpenseResponse::from).toList();
     }
 
 
-    @Transactional
+    @Transactional (isolation = Isolation.SERIALIZABLE)
     public ExpenseResponse approve(UUID id) {
         UUID tenantId = TenantContext.getTenantId();
+        rlsContext.setTenant(tenantId);
         Expense expense = expenseRepository.findByTenantIdAndId(tenantId,id)
                 .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
         if (expense.getStatus() != ExpenseStatus.SUBMITTED) {
@@ -106,9 +114,11 @@ public class ExpenseService {
         return ExpenseResponse.from(saved);
     }
 
-    @Transactional
+    @Transactional (isolation = Isolation.SERIALIZABLE)
     public ExpenseResponse reject(UUID expenseId, String reason){
-        Expense expense = expenseRepository.findByTenantIdAndId(TenantContext.getTenantId(),expenseId)
+        UUID tenantId = TenantContext.getTenantId();
+        rlsContext.setTenant(tenantId);
+        Expense expense = expenseRepository.findByTenantIdAndId(tenantId,expenseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
         if (expense.getStatus() != ExpenseStatus.SUBMITTED) {
             throw new ConflictException("Only submitted expenses can be rejected");
@@ -119,10 +129,13 @@ public class ExpenseService {
         return ExpenseResponse.from(expense);
     }
 
-    @Transactional
+
+
+    @Transactional (isolation = Isolation.SERIALIZABLE)
     public ExpenseResponse reverse(UUID id, String reason){
         UUID tenantId = TenantContext.getTenantId();
         UUID userId = TenantContext.getUserId();
+        rlsContext.setTenant(tenantId);
         Expense expense = expenseRepository.findByTenantIdAndId(tenantId,id)
                 .orElseThrow(() -> new ResourceNotFoundException("Expense not found"));
         if (expense.getStatus() != ExpenseStatus.APPROVED) {

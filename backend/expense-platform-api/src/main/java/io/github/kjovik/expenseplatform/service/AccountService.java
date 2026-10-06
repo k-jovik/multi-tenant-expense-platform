@@ -1,6 +1,7 @@
 package io.github.kjovik.expenseplatform.service;
 
 
+import io.github.kjovik.expenseplatform.context.RlsContext;
 import io.github.kjovik.expenseplatform.context.TenantContext;
 import io.github.kjovik.expenseplatform.dto.AccountResponse;
 import io.github.kjovik.expenseplatform.entity.Account;
@@ -20,10 +21,14 @@ import java.util.stream.Collectors;
 public class AccountService {
     private final AccountRepository accountRepository;
     private final JournalLineRepository journalLineRepository;
+    private final RlsContext rlsContext;
 
     @Transactional (readOnly = true)
     public List<AccountResponse> getAccountsDerivedBalances(){
         UUID tenantId = TenantContext.getTenantId();
+
+        rlsContext.setTenant(tenantId);
+
         List<Account> accounts = accountRepository.findByTenantId(tenantId);
         Map<UUID,Long> balances = journalLineRepository.sumByTenantId(tenantId)
                 .stream().collect(Collectors.toMap(
