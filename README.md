@@ -1,183 +1,233 @@
 # Multi-Tenant Expense Approval Platform
 
-> A production-style expense approval system with a double-entry ledger,
-> row-level tenant isolation, and an append-only audit trail.
+A production-style expense approval system with a double-entry ledger and
+row-level tenant isolation enforced at the database layer.
 
-**Live demo:** https://frontend-production-7fb2.up.railway.app  
-**Demo video:** [90-second walkthrough](https://youtube.com/watch?v=YOUR_ID)
+**Live demo:** https://frontend-production-7fb2.up.railway.app
 
 ## What it does
 
-- Employees submit expenses with categories and descriptions
-- Managers approve or reject them
-- Approvals create double-entry journal entries (DEBIT expense, CREDIT cash)
-- Approvals can be reversed — the ledger is append-only, reversals create
-  new entries with opposite signs
-- Tenant data is isolated at both app (TenantContext) and DB (RLS) levels
-- Complete audit trail logs every action
+- Employees submit expenses with a category, amount, and description
+- Managers approve or reject submitted expenses
+- Approval writes a double-entry journal entry (one debit, one credit)
+- Approved expenses can be reversed — the ledger is append-only, so a
+  reversal appends a new entry with negated lines instead of deleting or
+  editing the original
+- Tenant data is isolated at both the application layer (`TenantContext`)
+  and the database layer (Postgres Row-Level Security)
 
 ## Architecture
 
-## Architecture
-
-```
-┌─────────────┐
-│   React     │ (http://localhost:5173)
-│  Frontend   │
-└──────┬──────┘
-       │ JWT token
-       │
-┌──────▼──────────────────┐
-│   Spring Boot API       │
-│ (http://localhost:8080) │
-│                         │
-│ - JWT validation        │
-│ - TenantContext         │
-│ - Business logic        │
-└──────┬──────────────────┘
-       │ Postgres connection
-       │
-┌──────▼──────────────────┐
-│  PostgreSQL (5432)      │
-│                         │
-│ - RLS policies          │
-│ - Journal ledger        │
-│ - Audit logs            │
-└─────────────────────────┘
-```
+┌──────────────────────┐
+│ React + Vite (5173) │
+└──────────┬───────────┘
+│ JWT in Authorization header
+▼
+┌──────────────────────┐
+│ Spring Boot API │
+│ - JwtFilter │
+│ - TenantContext │
+│ - RlsContext │
+│ - Business logic │
+└──────────┬───────────┘
+│ app_user (non-superuser, subject to RLS)
+▼
+┌──────────────────────┐
+│ PostgreSQL 16 │
+│ - RLS policies │
+│ - Journal ledger │
+│ - Balance trigger │
+└──────────────────────┘
 
 
 ## Key design decisions
 
 ### Append-only ledger with reversals
+
 When an expense is approved, a journal entry is created with two lines:
-- DEBIT Expense:Travel +$50 (positive = money to travel account)
-- CREDIT Company:Cash -$50 (negative = money from cash)
 
-If that expense was a mistake, we create a REVERSAL entry:
-- DEBIT Company:Cash +$50 (undo the credit)
-- CREDIT Expense:Travel -$50 (undo the debit)
+DEBIT Expense:<category> +amount_minor
+CREDIT Payable:<userId> -amount_minor
 
-The original entry stays for audit. The ledger tracks every change. No deletes.
+To reverse an approved expense, a **new** journal entry is appended. Its
+lines mirror the original with **negated amounts on the same accounts**:
 
-Database enforces: `SUM(amount_minor) per entry = 0` ✓
+DEBIT Expense:<category> -amount_minor
+CREDIT Payable:<userId> +amount_minor
+
+
+The original entry is never modified or deleted. Balances are computed as
+`SUM(amount_minor)` per account, so the reversal nets the effect to zero
+while the audit trail preserves both events.
+
+A Postgres constraint trigger on `journal_lines` rejects any commit where
+an entry's lines don't sum to zero. Unbalanced entries are impossible at
+the database level, regardless of application code.
 
 ### Tenant isolation at two layers
-1. **Application:** `TenantContext` extracts tenant from JWT, carries it through request
-2. **Database:** PostgreSQL RLS policies + `SET LOCAL app.tenant_id`
 
-If application code forgets `WHERE tenant_id = ?`, the database still won't 
-leak other tenants' data. Defense-in-depth.
+**Application.** `TenantContext` (a `ThreadLocal`) carries the tenant id
+through the request; every repository query filters by `tenantId`.
 
-### Signed amounts instead of direction field
-Instead of:
-```sql
-amount: 50, direction: 'DEBIT'
-amount: 50, direction: 'CREDIT'
-```
+**Database.** RLS policies on all tenant-scoped tables filter by
+`current_setting('app.tenant_id')`, set per transaction via `SET LOCAL`.
+Policies are `FORCED` so the table owner is also subject to them. The
+application connects as `app_user`, a non-superuser role with only the
+privileges it needs — because Postgres superusers bypass RLS
+unconditionally, running the app as the default `postgres` role would
+silently disable this layer.
 
-We use:
-```sql
-amount: +50   (debit)
-amount: -50   (credit)
-```
+If application code ever omits a `WHERE tenant_id = ?` clause, the
+database still refuses to return other tenants' rows.
 
-Simpler query: `SUM(amount) = 0` instead of comparing debit totals to credit totals.
+### Signed amounts instead of a direction column
 
-### SERIALIZABLE transactions
-When two managers approve simultaneously, could they corrupt the ledger? No.
-Every approval uses `@Transactional(isolation = SERIALIZABLE)`. If conflicts 
-occur, Spring retries. The ledger is guaranteed consistent.
+Each journal line stores a signed `amount_minor`. Positive is a debit,
+negative is a credit. Balance queries become `SUM(amount_minor)`; there's
+no separate `direction` column to keep in sync.
+
+### SERIALIZABLE for state transitions
+
+`approve`, `reject`, and `reverse` run at `Isolation.SERIALIZABLE`. If
+two managers approve the same expense concurrently, one transaction
+commits and the other fails with a serialization error, which rolls it
+back — no double journal entry is possible.
+
+Retry-on-serialization-failure is not implemented. A production system
+would add retry (e.g. `@Retryable`) so the loser sees a 409 instead of a
+transient 500.
 
 ## What I learned
 
-1. **Financial systems think differently** — Correctness beats performance
-2. **Multi-tenancy is a security mindset** — Don't just filter, enforce at DB
-3. **Testing invariants beats coverage** — Tests that prove ledger balances = gold
-4. **Append-only means auditability** — Never delete, reverse instead
+- **Debits and credits must balance to zero per journal entry** — and this
+  invariant is best enforced by the database. A Postgres constraint
+  trigger blocks any commit that would violate it, so the app can't
+  corrupt the ledger even by accident.
 
-## What I'd do differently (production)
+- **RLS only works when the connecting role isn't a superuser.** Postgres
+  superusers bypass RLS unconditionally. The app connects as a
+  least-privilege role (`app_user`) while Flyway uses admin credentials
+  for migrations.
 
-- Redis caching for expensive balance queries
-- Async job queue for anomaly detection
-- Short-lived JWTs + refresh tokens
-- Rate limiting per tenant
-- Multi-currency support (store FX rate at approval)
-- Encrypted storage for sensitive fields
+- **`SET LOCAL` scope matters.** It's transaction-scoped, so it must be
+  set inside an active transaction and clears automatically at commit or
+  rollback — exactly what you want for per-request tenant context.
+
+- **A reversal is a first-class operation in an append-only ledger.**
+  Preserving history is more valuable than the ability to edit it, and
+  reversals as new entries give you both correctness and auditability.
+
+## What I'd do differently in production
+
+- Redis caching for expensive account-balance queries
+- Async job queue for anomaly detection on expense submission
+- Short-lived JWTs plus refresh tokens (access tokens are valid for 24 hours)
+- Rate limiting on `/auth/login` and `/auth/register`
+- FX conversion at approval time (multi-currency expenses currently post at par)
+- Automatic retry on serialization failures
 
 ## Tech stack
 
-| Component | Technology | Why |
-|-----------|-----------|-----|
-| Backend | Spring Boot 3, Jakarta | Enterprise standard, excellent transaction handling |
-| Frontend | React 18, Vite | Fast dev experience, type-safe with TS |
-| Database | PostgreSQL 16 | ACID, RLS, JSON, reliability |
-| Auth | JWT (HS256) | Stateless, scales horizontally |
-| Deployment | Railway | Simple, automated builds, free tier sufficient for demo |
+| Layer      | Technology |
+|------------|-----------|
+| Backend    | Java 21, Spring Boot 4.1, Spring Security, Spring Data JPA, Flyway |
+| Frontend   | React 19, Vite 8, TypeScript 6, TanStack Query, Tailwind CSS 4, shadcn/ui |
+| Database   | PostgreSQL 16 (RLS, JSONB, constraint triggers) |
+| Auth       | JWT (HS256) |
+| Deployment | Railway (frontend, backend, managed Postgres) |
 
 ## Testing
 
 ```bash
-mvn test
-```
+./mvnw test
 
-Runs critical invariant tests:
+Two integration tests run against a real Postgres 16 via Testcontainers.
+Flyway applies all migrations to a throwaway container, so the tests
+exercise the real schema, RLS policies, and trigger — not mocks.
 
-**Data Isolation (RLS)**
-- Create two tenants
-- Insert expenses for each
-- Set RLS context for tenant A
-- Query with no WHERE clause
-- Assert only tenant A's expenses returned ✓
+TenantIsolationTest verifies RLS at the database layer:
 
-**Ledger Correctness**
-- Try to insert unbalanced lines → DB rejects ✓
-- Insert balanced lines → succeeds ✓
-- SUM(amount_minor) = 0 ✓
+Seeds two tenants, one expense each
 
-## Local development
+Opens a separate JDBC connection as app_user (non-superuser, subject
+to RLS)
 
-```bash
-# Start everything
-docker compose up
+Runs SELECT COUNT(*) FROM expenses (no WHERE clause) under three
+different app.tenant_id contexts
 
-# Backend:  http://localhost:8080
-# Frontend: http://localhost:5173
-# Database: localhost:5432
+Asserts 1 (tenant A), 1 (tenant B), 0 (no context)
 
-# Register a test tenant
+LedgerBalanceTest verifies the balance trigger:
+
+Attempts to commit a journal entry whose lines sum to +10 → asserts the
+commit is rejected and nothing persisted
+
+Commits a balanced entry → asserts both lines are present
+
+Local development
+Start Postgres via Docker Compose (no local Postgres installation needed):
+
+docker compose up -d
+
+Then run the backend and frontend in separate terminals:
+
+# Terminal 1: backend on http://localhost:8080
+cd backend/expense-platform-api
+./mvnw spring-boot:run
+
+# Terminal 2: frontend on http://localhost:5173
+cd frontend/expense-platform-web
+npm install
+npm run dev
+
+Register a test tenant:
+
 curl -X POST http://localhost:8080/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "tenantName": "acme-corp",
     "email": "admin@acme.com",
-    "password": "password",
+    "password": "password123",
     "fullName": "Alice Admin"
   }'
-```
 
-## Endpoints
+API endpoints
+Method	Endpoint	Notes
+POST	/auth/register	Create tenant + admin user
+POST	/auth/login	Returns JWT
+POST	/api/expenses	Submit an expense
+GET	/api/expenses	List expenses in the current tenant
+PATCH	/api/expenses/{id}/approve	Manager or Admin only
+PATCH	/api/expenses/{id}/reject	Manager or Admin only
+PATCH	/api/expenses/{id}/reverse	Manager or Admin only; APPROVED only
+GET	/api/accounts	List accounts with derived balances
+Known limitations
+Single-currency ledger. Expenses may be submitted in any currency;
+the ledger is USD and multi-currency expenses post at par without FX
+conversion. Production would apply an FX rate at approval time or
+maintain per-currency accounts.
 
-| Method | Endpoint | What it does |
-|--------|----------|-------------|
-| POST | `/auth/register` | Create tenant + admin user |
-| POST | `/auth/login` | Get JWT token |
-| POST | `/api/expenses` | Submit expense (any user) |
-| GET | `/api/expenses` | List (filters by user/tenant) |
-| PATCH | `/api/expenses/:id/approve` | Approve + create ledger (manager only) |
-| PATCH | `/api/expenses/:id/reject` | Reject (manager only) |
-| POST | `/api/expenses/:id/reverse` | Reverse an approval (admin only) |
-| GET | `/api/accounts` | List accounts with balances |
-| GET | `/api/audit-logs` | List all actions (admin only) |
+No rate limiting. /auth/login and /auth/register are
+unthrottled.
 
-## Code quality
+Dev JWT secret fallback. application.properties contains a
+dev-only default value; production overrides it via the JWT_SECRET
+environment variable.
 
-- JUnit tests for critical invariants (RLS, ledger balance)
-- Structured logging with tenant context
-- Global exception handling with proper HTTP status codes
-- DTOs for request/response (never expose entities)
-- Repository pattern for data access
+No refresh tokens. Access tokens are valid for 24 hours.
 
-## Repository
+No serialization-failure retry. A rare concurrent-approval race
+surfaces as a 500 rather than a friendly 409.
 
-[GitHub Link](https://github.com/k-jovik/multi-tenant-expense-platform)
+No audit log endpoint yet. The audit_logs table exists in the
+schema, but no writes and no read endpoint are implemented.
+
+Deployment
+Deployed on Railway: React frontend, Spring Boot backend, and managed
+PostgreSQL 16 in the same project. The backend connects as app_user
+(non-superuser) so RLS is enforced at runtime; Flyway runs as the admin
+role on startup to apply migrations. CORS allowed origins are configured
+via the CORS_ALLOWED_ORIGINS environment variable.
+
+Repository
+https://github.com/k-jovik/multi-tenant-expense-platform
