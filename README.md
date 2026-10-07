@@ -18,6 +18,7 @@ row-level tenant isolation enforced at the database layer.
 
 ## Architecture
 
+```
 ┌──────────────────────┐
 │ React + Vite (5173) │
 └──────────┬───────────┘
@@ -38,6 +39,7 @@ row-level tenant isolation enforced at the database layer.
 │ - Journal ledger │
 │ - Balance trigger │
 └──────────────────────┘
+```
 
 
 ## Key design decisions
@@ -190,6 +192,7 @@ curl -X POST http://localhost:8080/auth/register \
     "password": "password123",
     "fullName": "Alice Admin"
   }'
+```
 
 ## API endpoints
 
@@ -203,6 +206,8 @@ curl -X POST http://localhost:8080/auth/register \
 | PATCH | `/api/expenses/{id}/reject` | Reject an expense (Manager/Admin only) |
 | PATCH | `/api/expenses/{id}/reverse` | Reverse an approved expense (Manager/Admin only; APPROVED status only) |
 | GET | `/api/accounts` | List all accounts with calculated balances |
+
+
 
 Known limitations
 Single-currency ledger. Expenses may be submitted in any currency;
