@@ -209,7 +209,8 @@ curl -X POST http://localhost:8080/auth/register \
 
 
 
-Known limitations
+## Known limitations
+
 Single-currency ledger. Expenses may be submitted in any currency;
 the ledger is USD and multi-currency expenses post at par without FX
 conversion. Production would apply an FX rate at approval time or
