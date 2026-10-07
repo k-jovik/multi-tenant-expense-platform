@@ -99,6 +99,45 @@ Retry-on-serialization-failure is not implemented. A production system
 would add retry (e.g. `@Retryable`) so the loser sees a 409 instead of a
 transient 500.
 
+### Frontend architecture
+
+**Auth via React Context.** `AuthProvider` (in `contexts/AuthContext.tsx`)
+holds the current user and exposes `login` / `logout` through a `useAuth()`
+hook. On mount it hydrates state from `localStorage`, verifying that both
+`token` and `user` are present before trusting the cached user object.
+
+**Protected routes.** `App.tsx` wraps the authenticated area in a
+`<ProtectedRoute>` component that reads `useAuth()` and redirects to
+`/login` if no user is present. Routes under that wrapper share a common
+`<Layout>` (navbar + outlet).
+
+**Axios instance with interceptors.** A single `api` instance in
+`lib/api.ts` centralizes:
+
+- *Request interceptor:* attaches `Authorization: Bearer <token>` from
+  `localStorage` to every outbound request.
+- *Response interceptor:* on 401, clears stored credentials and redirects
+  to `/login` — so an expired token logs the user out without any
+  per-page code.
+
+**`getApiErrorMessage` helper.** Normalizes the varied error shapes from
+Spring (custom `ApiException` bodies with a `message` field, validation
+errors, generic 500s) into a single user-facing string. Every mutation's
+`onError` handler uses it, so the same rendering path handles a 409
+"already processed" and a network failure.
+
+**Server state with TanStack Query.** `useExpenses()` and `useAccounts()`
+wrap `useQuery` with stable query keys (`['expenses']`, `['accounts']`).
+Mutations call `queryClient.setQueryData(['expenses'], ...)` to update the
+list cache in place after an approve/reject/reverse, and invalidate
+`['accounts']` so derived balances refetch. This keeps the UI consistent
+without full-page reloads.
+
+**Forms.** React Hook Form handles validation and submission on the login,
+register, and add-expense pages. Form-level errors (server-side failures)
+render below the form, and `isSubmitting` drives the loading state on the
+submit button.
+
 ## What I learned
 
 - **Debits and credits must balance to zero per journal entry** — and this
