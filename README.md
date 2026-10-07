@@ -191,16 +191,19 @@ curl -X POST http://localhost:8080/auth/register \
     "fullName": "Alice Admin"
   }'
 
-API endpoints
-Method	Endpoint	Notes
-POST	/auth/register	Create tenant + admin user
-POST	/auth/login	Returns JWT
-POST	/api/expenses	Submit an expense
-GET	/api/expenses	List expenses in the current tenant
-PATCH	/api/expenses/{id}/approve	Manager or Admin only
-PATCH	/api/expenses/{id}/reject	Manager or Admin only
-PATCH	/api/expenses/{id}/reverse	Manager or Admin only; APPROVED only
-GET	/api/accounts	List accounts with derived balances
+## API endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/auth/register` | Create a new tenant and admin user |
+| POST | `/auth/login` | Authenticate and receive JWT token |
+| POST | `/api/expenses` | Submit a new expense |
+| GET | `/api/expenses` | List all expenses for the current tenant |
+| PATCH | `/api/expenses/{id}/approve` | Approve an expense and create ledger entry (Manager/Admin only) |
+| PATCH | `/api/expenses/{id}/reject` | Reject an expense (Manager/Admin only) |
+| PATCH | `/api/expenses/{id}/reverse` | Reverse an approved expense (Manager/Admin only; APPROVED status only) |
+| GET | `/api/accounts` | List all accounts with calculated balances |
+
 Known limitations
 Single-currency ledger. Expenses may be submitted in any currency;
 the ledger is USD and multi-currency expenses post at par without FX
