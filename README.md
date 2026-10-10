@@ -4,6 +4,7 @@ A production-style expense approval system with a double-entry ledger and
 row-level tenant isolation enforced at the database layer.
 
 **Live demo:** https://frontend-production-7fb2.up.railway.app
+**Demo video:** [walkthrough] https://youtu.be/gHl37Lfs1mk
 
 ## What it does
 
